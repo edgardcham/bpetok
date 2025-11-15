@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from typing import Iterable
 
+from .encode_decode import Tokenizer as RuntimeTokenizer
 from .model import MergeRule, TokenizerConfig, Vocabulary, save_merges, save_model, save_vocab
 from .normalize import pretokenize_characters, text_to_byte_symbols
 
@@ -44,6 +45,10 @@ def train(config: TokenizerConfig) -> tuple[Vocabulary, list[MergeRule]]:
     save_vocab(output_dir / "vocab.json", vocab)
     save_merges(output_dir / "merges.txt", merge_rules)
     save_model(config.model_path, config, vocab, merge_rules)
+
+    # Validation
+    tokenizer = RuntimeTokenizer(config, vocab, merge_rules)
+    _evaluate_on_validation(config, tokenizer)
 
     return vocab, merge_rules
 
@@ -150,7 +155,7 @@ def _update_pair_stats_for_merge(
             pair_counts[old_right_pair] -= 1
             pair_locations[old_right_pair].discard((seq_idx, token_idx + 1))
 
-        seq[token_idx:token_idx+2] = [merged_symbol]
+        seq[token_idx : token_idx + 2] = [merged_symbol]
 
         if left_neighbor:
             new_left_pair = (left_neighbor, merged_symbol)
@@ -163,8 +168,34 @@ def _update_pair_stats_for_merge(
             pair_locations[new_right_pair].add((seq_idx, token_idx))
 
 
-def _evaluate_on_validation(
-    config: TokenizerConfig, vocab: Vocabulary, merge_rules: list[MergeRule]
-) -> None:
-    # TODO: load valid_path, encode/decode sample lines, compute metrics
-    pass
+def _evaluate_on_validation(config: TokenizerConfig, tokenizer: RuntimeTokenizer) -> None:
+    """
+    Evaluate the tokenizer on the validation set.
+
+    Args:
+        config: Tokenizer configuration.
+        vocab: Vocabulary.
+        merge_rules: List of merge rules.
+    """
+    valid_path = config.valid_path
+    if not valid_path.exists():
+        print("No validation file found. Skipping evaluation.")
+        return
+    mismatches = 0
+    total = 0
+    with valid_path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.rstrip("\n")
+            if not line:
+                continue
+            total += 1
+            ids = tokenizer.encode(line)
+            decoded = tokenizer.decode(ids)
+            if decoded != line:
+                mismatches += 1
+
+
+    if mismatches:
+        print(f"[validation] {mismatches}/{total} lines failed round-trip")
+    else:
+        print(f"[validation] {total}/{total} lines round-tripped successfully")
