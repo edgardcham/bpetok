@@ -44,17 +44,19 @@ def train(config: TokenizerConfig) -> tuple[Vocabulary, list[MergeRule]]:
         new_symbol = "".join(best_pair)
         vocab.add_token(new_symbol)
         merge_rules.append(MergeRule(left=best_pair[0], right=best_pair[1], rank=merge_idx))
-        locations = pair_locations.get(best_pair)
-        if locations is None:
-            merge_locations: set[tuple[int, int]] = set()
-            pair_locations[best_pair] = set()
-        else:
-            merge_locations = set(locations)
+        locations = pair_locations.setdefault(best_pair, set())
+        merge_locations = set(locations)
         update_pair_stats_for_merge(
             sequences, best_pair, merge_locations, pair_counts, pair_locations, pair_heap
         )
-        if locations is not None:
-            pair_locations[best_pair] -= merge_locations
+        if merge_idx < 5:  # only log the first few merges
+            print("Top pairs after merge", merge_idx + 1)
+            for pair, count in pair_counts.most_common(5):
+                print(pair, count)
+        pair_locations[best_pair] -= merge_locations
+        if not pair_locations[best_pair]:
+            pair_locations.pop(best_pair, None)
+        pair_counts, pair_locations, pair_heap = build_pair_stats(sequences)
         if (merge_idx + 1) % config.progress_every == 0:
             print(
                 f"[merge {merge_idx + 1}] best pair={best_pair} freq={best_count} "
