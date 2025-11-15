@@ -18,7 +18,8 @@ class TokenizerConfig(BaseModel):
     target_vocabulary_size: int = 16000
     minimum_pair_frequency: int = 2
 
-    # Optional runtime cap: stop after at most this many merge operations even if other criteria are not met
+    # Optional runtime cap: stop after at most this many merge operations
+    # even if other criteria are not met
     max_merges: int | None = None
 
     # Random seed for reproducibility
@@ -57,7 +58,8 @@ class Vocabulary:
     @classmethod
     def from_tokens(cls, tokens: Iterable[str]) -> "Vocabulary":
         """
-        Build vocab where each token gets its position as the id (i.e. token_to_id[token] == id_to_token.index(token))
+        Build vocab where each token gets its position as the id
+        (i.e. token_to_id[token] == id_to_token.index(token))
 
         Args:
             tokens: Iterable of tokens to add to the vocabulary.

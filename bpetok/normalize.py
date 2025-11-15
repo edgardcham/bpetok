@@ -82,11 +82,12 @@ def pretokenize_characters(text: str, config: TokenizerConfig) -> list[str]:
         List of pretokenized characters.
     """
     normalized = normalize_text(text, config)
-    if not config.add_visible_space:
-        return WORD_OR_PUNCT_RE.findall(normalized)
     tokens: list[str] = []
-    for chunk in split_visible_spaces(normalized):
-        tokens.append(chunk)
+    for chunk in normalized.split(VISIBLE_SPACE):
+        if not chunk:
+            continue
+        tokens.append(VISIBLE_SPACE)
+        tokens.extend(list(chunk))  # break words into chars
     return tokens
 
 
