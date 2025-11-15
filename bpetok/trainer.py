@@ -5,7 +5,14 @@ from __future__ import annotations
 from typing import Iterable
 
 from .encode_decode import Tokenizer as RuntimeTokenizer
-from .model import MergeRule, TokenizerConfig, Vocabulary, save_merges, save_model, save_vocab
+from .model import (
+    MergeRule,
+    TokenizerConfig,
+    Vocabulary,
+    save_merges,
+    save_model,
+    save_vocab,
+)
 from .normalize import pretokenize_characters, text_to_byte_symbols
 from .utils import build_pair_stats, select_best_pair, update_pair_stats_for_merge
 
@@ -22,6 +29,9 @@ def train(config: TokenizerConfig) -> tuple[Vocabulary, list[MergeRule]]:
     """
     sequences = list(_load_corpus(config))
     vocab = Vocabulary.from_tokens(config.specials)
+    initial_tokens = {token for seq in sequences for token in seq}
+    for token in sorted(initial_tokens):
+        vocab.add_token(token)
 
     merge_rules: list[MergeRule] = []
 

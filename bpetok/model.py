@@ -261,15 +261,12 @@ def save_model(
     Returns:
         None
     """
-
     payload = {
-        "config": config.model_dump(),
+        "config": config.model_dump(mode="json"),
         "vocab": vocab.to_json(),
         "merges": [rule.as_tuple() for rule in merges],
     }
-    # Ensure the directory exists
     path.parent.mkdir(parents=True, exist_ok=True)
-    # Write the model to the file
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2))
 
 

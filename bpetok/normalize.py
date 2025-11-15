@@ -9,10 +9,8 @@ from typing import Iterable
 from .model import TokenizerConfig
 
 VISIBLE_SPACE = "_"
-# Matches any whitespace character
 WHITESPACE_RE = re.compile(r"\s+")
-# Matches word or punctuation
-WORD_OR_PUNCT_RE = re.compile(r"\w+|[\p{P}\p{S}]")
+WORD_OR_PUNCT_RE = re.compile(r"\w+|[^\w\s]", re.UNICODE)
 
 
 def normalize_text(text: str, config: TokenizerConfig) -> str:
@@ -67,7 +65,7 @@ def split_visible_spaces(text: str) -> Iterable[str]:
             yield VISIBLE_SPACE
             continue
         yield VISIBLE_SPACE
-        yield from WORD_OR_PUNCT_RE.finditer(segment)
+        yield from WORD_OR_PUNCT_RE.findall(segment)
 
 
 def pretokenize_characters(text: str, config: TokenizerConfig) -> list[str]:
