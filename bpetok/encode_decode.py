@@ -22,6 +22,7 @@ class Tokenizer:
         self.vocab = vocab
         self.merges = merges
         self.merge_ranks = {rule.as_tuple(): rule.rank for rule in merges}
+        self.unknown_id = self.vocab.get_id(config.specials[0])
 
     @classmethod
     def load(cls, path) -> "Tokenizer":
@@ -68,19 +69,28 @@ class Tokenizer:
                 i += 1
         return merged
 
-    def encode(self, text: str) -> list[int]:
+    def encode(self, text: str, *, strict: bool = False) -> list[int]:
         """
         Encode the text into a list of token IDs.
 
         Args:
             text: Text to encode.
+            strict: If True, raise KeyError when a token is missing.
 
         Returns:
             List of token IDs.
         """
         tokens = self._pretokenize(text)
         tokens = self._apply_merges(tokens)
-        return [self.vocab.get_id(token) for token in tokens]
+        encoded: list[int] = []
+        for token in tokens:
+            token_id = self.vocab.token_to_id.get(token)
+            if token_id is None:
+                if strict:
+                    raise KeyError(token)
+                token_id = self.unknown_id
+            encoded.append(token_id)
+        return encoded
 
     def decode(self, ids: Iterable[int]) -> str:
         """
