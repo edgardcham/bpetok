@@ -7,6 +7,13 @@ from typing import Optional
 import typer
 
 from .encode_decode import Tokenizer as RuntimeTokenizer
+from .metrics import (
+    average_tokens_per_word,
+    baseline_token_counts,
+    compression_ratio,
+    measure_decoding_speed,
+    measure_encoding_speed,
+)
 from .model import TokenizerConfig
 from .trainer import train as train_model
 
@@ -130,11 +137,22 @@ def stats(
     tokenizer = RuntimeTokenizer.load(model)
     text = input.read_text(encoding="utf-8")
     ids = tokenizer.encode(text)
-    tokens_per_word = len(ids) / max(len(text.split()), 1)
+
+    baselines = baseline_token_counts(text)
+    avg_tokens = average_tokens_per_word(len(ids), baselines["whitespace"])
+    char_ratio = compression_ratio(len(ids), baselines["character"])
+    word_ratio = compression_ratio(len(ids), baselines["whitespace"])
+
+    enc_speed = measure_encoding_speed(tokenizer, text)
+    dec_speed = measure_decoding_speed(tokenizer, ids)
+
     typer.echo(f"Vocab size: {len(tokenizer.vocab)}")
     typer.echo(f"Merges learned: {len(tokenizer.merges)}")
     typer.echo(f"Input length: {len(text)} chars, tokens produced: {len(ids)}")
-    typer.echo(f"Avg tokens per word: {tokens_per_word:.2f}")
+    typer.echo(f"Avg tokens per word: {avg_tokens:.2f}")
+    typer.echo(f"Compression vs chars: {char_ratio:.3f}x  vs words: {word_ratio:.3f}x")
+    typer.echo(f"Encoding speed: {enc_speed:.0f} tokens/sec")
+    typer.echo(f"Decoding speed: {dec_speed:.0f} tokens/sec")
 
 
 if __name__ == "__main__":
