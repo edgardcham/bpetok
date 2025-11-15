@@ -87,16 +87,16 @@ def update_pair_stats_for_merge(
         heap: Max-heap storing (-count, pair) entries.
     """
     merged_symbol = "".join(pair)
+    touched_pairs: set[Pair] = set()
     for seq_idx, token_idx in sorted(locations, reverse=True):
         seq = sequences[seq_idx]
         if token_idx >= len(seq) - 1:
             continue
         if (seq[token_idx], seq[token_idx + 1]) != pair:
-            pair_locations[pair].discard((seq_idx, token_idx))
             continue
 
         pair_counts[pair] -= 1
-        _push_heap(heap, pair_counts, pair)
+        touched_pairs.add(pair)
 
         left_neighbor = seq[token_idx - 1] if token_idx > 0 else None
         right_neighbor = seq[token_idx + 2] if token_idx + 2 < len(seq) else None
@@ -105,19 +105,19 @@ def update_pair_stats_for_merge(
             old_left_pair = (left_neighbor, seq[token_idx])
             left_coord = (seq_idx, token_idx - 1)
             pair_counts[old_left_pair] -= 1
-            pair_locations[old_left_pair].discard(left_coord)
+            pair_locations.setdefault(old_left_pair, set()).discard(left_coord)
             if pair_counts[old_left_pair] <= 0:
                 pair_locations.pop(old_left_pair, None)
-            _push_heap(heap, pair_counts, old_left_pair)
+            touched_pairs.add(old_left_pair)
 
         if right_neighbor:
             old_right_pair = (seq[token_idx + 1], right_neighbor)
             right_coord = (seq_idx, token_idx + 1)
             pair_counts[old_right_pair] -= 1
-            pair_locations[old_right_pair].discard(right_coord)
+            pair_locations.setdefault(old_right_pair, set()).discard(right_coord)
             if pair_counts[old_right_pair] <= 0:
                 pair_locations.pop(old_right_pair, None)
-            _push_heap(heap, pair_counts, old_right_pair)
+            touched_pairs.add(old_right_pair)
 
         seq[token_idx : token_idx + 2] = [merged_symbol]
 
@@ -125,15 +125,18 @@ def update_pair_stats_for_merge(
             new_left_pair = (left_neighbor, merged_symbol)
             new_left_coord = (seq_idx, token_idx - 1)
             pair_counts[new_left_pair] += 1
-            pair_locations[new_left_pair].add(new_left_coord)
-            _push_heap(heap, pair_counts, new_left_pair)
+            pair_locations.setdefault(new_left_pair, set()).add(new_left_coord)
+            touched_pairs.add(new_left_pair)
 
         if right_neighbor:
             new_right_pair = (merged_symbol, right_neighbor)
             new_right_coord = (seq_idx, token_idx)
             pair_counts[new_right_pair] += 1
-            pair_locations[new_right_pair].add(new_right_coord)
-            _push_heap(heap, pair_counts, new_right_pair)
+            pair_locations.setdefault(new_right_pair, set()).add(new_right_coord)
+            touched_pairs.add(new_right_pair)
 
     if pair_counts[pair] <= 0:
         pair_locations.pop(pair, None)
+
+    for touched in touched_pairs:
+        _push_heap(heap, pair_counts, touched)

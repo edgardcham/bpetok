@@ -36,6 +36,9 @@ class TokenizerConfig(BaseModel):
     # Reserved tokens keep fixed IDs; Field avoids mutable default pitfalls
     specials: list[str] = Field(default_factory=lambda: ["<unknown>", "<begin>", "<end>"])
 
+    # Enable extra debug logging (e.g., first few merge stats)
+    debug_first_merges: bool = False
+
     # Paths to training data and validation set
     data_path: Path = Path("./data/train.txt")
     valid_path: Path = Path("./data/valid.txt")
