@@ -5,7 +5,7 @@ from __future__ import annotations
 import heapq
 from collections import Counter, defaultdict
 
-Pair = tuple[str, str]
+Pair = tuple[int, int]
 Location = tuple[int, int]
 
 
@@ -21,7 +21,7 @@ def _push_heap(
 
 
 def build_pair_stats(
-    sequences: list[list[str]],
+    sequences: list[list[int]],
 ) -> tuple[Counter[Pair], dict[Pair, set[Location]], list[tuple[int, Pair]]]:
     """
     Build pair stats for the sequences.
@@ -64,16 +64,18 @@ def select_best_pair(
         if pair_counts.get(pair, 0) == count and count > 0:
             return pair, count
         heapq.heappop(heap)
-    return ("", ""), 0
+    # Sentinel: caller must check best_count before using the pair.
+    return (-1, -1), 0
 
 
 def update_pair_stats_for_merge(
-    sequences: list[list[str]],
+    sequences: list[list[int]],
     pair: Pair,
     locations: set[Location],
     pair_counts: Counter[Pair],
     pair_locations: dict[Pair, set[Location]],
     heap: list[tuple[int, Pair]],
+    new_token_id: int,
 ) -> None:
     """
     Update pair stats for the merge.
@@ -86,7 +88,6 @@ def update_pair_stats_for_merge(
         pair_locations: Dict of locations of pairs.
         heap: Max-heap storing (-count, pair) entries.
     """
-    merged_symbol = "".join(pair)
     touched_pairs: set[Pair] = set()
     for seq_idx, token_idx in sorted(locations, reverse=True):
         seq = sequences[seq_idx]
@@ -101,7 +102,7 @@ def update_pair_stats_for_merge(
         left_neighbor = seq[token_idx - 1] if token_idx > 0 else None
         right_neighbor = seq[token_idx + 2] if token_idx + 2 < len(seq) else None
 
-        if left_neighbor:
+        if left_neighbor is not None:
             old_left_pair = (left_neighbor, seq[token_idx])
             left_coord = (seq_idx, token_idx - 1)
             pair_counts[old_left_pair] -= 1
@@ -110,7 +111,7 @@ def update_pair_stats_for_merge(
                 pair_locations.pop(old_left_pair, None)
             touched_pairs.add(old_left_pair)
 
-        if right_neighbor:
+        if right_neighbor is not None:
             old_right_pair = (seq[token_idx + 1], right_neighbor)
             right_coord = (seq_idx, token_idx + 1)
             pair_counts[old_right_pair] -= 1
@@ -119,17 +120,17 @@ def update_pair_stats_for_merge(
                 pair_locations.pop(old_right_pair, None)
             touched_pairs.add(old_right_pair)
 
-        seq[token_idx : token_idx + 2] = [merged_symbol]
+        seq[token_idx : token_idx + 2] = [new_token_id]
 
-        if left_neighbor:
-            new_left_pair = (left_neighbor, merged_symbol)
+        if left_neighbor is not None:
+            new_left_pair = (left_neighbor, new_token_id)
             new_left_coord = (seq_idx, token_idx - 1)
             pair_counts[new_left_pair] += 1
             pair_locations.setdefault(new_left_pair, set()).add(new_left_coord)
             touched_pairs.add(new_left_pair)
 
-        if right_neighbor:
-            new_right_pair = (merged_symbol, right_neighbor)
+        if right_neighbor is not None:
+            new_right_pair = (new_token_id, right_neighbor)
             new_right_coord = (seq_idx, token_idx)
             pair_counts[new_right_pair] += 1
             pair_locations.setdefault(new_right_pair, set()).add(new_right_coord)

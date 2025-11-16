@@ -1,0 +1,8 @@
+{
+  "model_kind": "byte_bpe",
+  "add_visible_space": false,
+  "target_vocabulary_size": 16000,
+  "minimum_pair_frequency": 2,
+  "max_merges": null,
+  "progress_every": 100
+}

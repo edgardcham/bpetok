@@ -43,13 +43,6 @@ htmlcov/
 .ipynb_checkpoints/
 *.ipynb_checkpoints
 
-# Project specific
-out/*.json
-out/*.txt
-data/*.txt
-!data/.gitkeep
-examples/*.tok
-
 # OS
 .DS_Store
 Thumbs.db

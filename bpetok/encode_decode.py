@@ -108,6 +108,7 @@ class Tokenizer:
             if self.config.add_visible_space:
                 text = text.replace(VISIBLE_SPACE, " ")
             return text
-        byte_symbols = tokens
-        text = byte_symbols_to_text(byte_symbols)
+        # Byte-level: flatten merged tokens into the underlying byte symbols.
+        flat_symbols = [ch for tok in tokens for ch in tok]
+        text = byte_symbols_to_text(flat_symbols)
         return text

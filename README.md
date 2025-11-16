@@ -135,6 +135,7 @@ class TokenizerConfig(BaseModel):
     lowercase: bool = False
     add_visible_space: bool = True
     specials: list[str] = ["<unknown>", "<begin>", "<end>"]
+    debug_first_merges: bool = False
     data_path: Path = Path("./data/train.txt")
     valid_path: Path = Path("./data/valid.txt")
     output_dir: Path = Path("./out")
@@ -143,6 +144,7 @@ class TokenizerConfig(BaseModel):
 
 - **Training termination:** Training stops as soon as the vocab reaches `target_vocabulary_size`, the top pair frequency dips below `minimum_pair_frequency`, or the optional `max_merges` limit is hit—whichever happens first—so runs remain bounded and merges stay meaningful.
 - **Deterministic progress reporting:** `random_seed` controls all stochastic work, and `progress_every` ensures trainer logs fire on repeatable intervals for the same seed/input.
+- **Debugging:** `debug_first_merges` controls whether training prints the top few pairs and counts after the first merges—useful for learning and debugging, but off by default for performance.
 - **Normalization toggles:** `unicode_normalization`, `strip_accents`, `lowercase`, and `add_visible_space` must be identical during training and inference; they implement the normalization/pretokenization rules described earlier to guarantee round-trip decoding.
 - **Special tokens:** `specials` orders the reserved strings; the implementation derives an ID map like `{"<unknown>": 0, "<begin>": 1, "<end>": 2}` so these IDs stay fixed, skip merge operations, and serialize consistently.
 - **Paths:** `data_path`, `valid_path`, `output_dir`, and `model_path` centralize where corpora are read and artifacts written, matching the default project tree.

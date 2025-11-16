@@ -13,8 +13,28 @@ from .model import (
     save_model,
     save_vocab,
 )
-from .normalize import pretokenize_characters, text_to_byte_symbols
+from .normalize import VISIBLE_SPACE, normalize_text, pretokenize_characters, text_to_byte_symbols
 from .utils import build_pair_stats, select_best_pair, update_pair_stats_for_merge
+
+
+class TokenIndexer:
+    """Maps string tokens to integer IDs for faster training."""
+
+    def __init__(self) -> None:
+        self.token_to_id: dict[str, int] = {}
+        self.id_to_token: list[str] = []
+
+    def get_or_add(self, token: str) -> int:
+        existing = self.token_to_id.get(token)
+        if existing is not None:
+            return existing
+        idx = len(self.id_to_token)
+        self.token_to_id[token] = idx
+        self.id_to_token.append(token)
+        return idx
+
+    def encode_sequence(self, sequence: list[str]) -> list[int]:
+        return [self.get_or_add(tok) for tok in sequence]
 
 
 def train(config: TokenizerConfig) -> tuple[Vocabulary, list[MergeRule]]:
@@ -27,9 +47,11 @@ def train(config: TokenizerConfig) -> tuple[Vocabulary, list[MergeRule]]:
     Returns:
         Tuple containing the vocabulary and merge rules.
     """
-    sequences = list(_load_corpus(config))
+    raw_sequences = list(_load_corpus(config))
+    indexer = TokenIndexer()
+    sequences = [indexer.encode_sequence(seq) for seq in raw_sequences]
     vocab = Vocabulary.from_tokens(config.specials)
-    initial_tokens = {token for seq in sequences for token in seq}
+    initial_tokens = {token for seq in raw_sequences for token in seq}
     for token in sorted(initial_tokens):
         vocab.add_token(token)
 
@@ -41,12 +63,32 @@ def train(config: TokenizerConfig) -> tuple[Vocabulary, list[MergeRule]]:
         best_pair, best_count = select_best_pair(pair_counts, pair_heap)
         if best_count < config.minimum_pair_frequency:
             break
-        new_symbol = "".join(best_pair)
+        # Guard against stale stats: best_pair must have some tracked locations.
+        locations = pair_locations.get(best_pair)
+        if not locations:
+            # Fallback: rebuild pair stats once from scratch.
+            pair_counts, pair_locations, pair_heap = build_pair_stats(sequences)
+            best_pair, best_count = select_best_pair(pair_counts, pair_heap)
+            if best_count < config.minimum_pair_frequency:
+                break
+            locations = pair_locations.get(best_pair, set())
+
+        left_id, right_id = best_pair
+        left_symbol = indexer.id_to_token[left_id]
+        right_symbol = indexer.id_to_token[right_id]
+        new_symbol = left_symbol + right_symbol
+        new_token_id = indexer.get_or_add(new_symbol)
         vocab.add_token(new_symbol)
-        merge_rules.append(MergeRule(left=best_pair[0], right=best_pair[1], rank=merge_idx))
+        merge_rules.append(MergeRule(left=left_symbol, right=right_symbol, rank=merge_idx))
         locations = pair_locations.pop(best_pair, set())
         update_pair_stats_for_merge(
-            sequences, best_pair, locations, pair_counts, pair_locations, pair_heap
+            sequences,
+            best_pair,
+            locations,
+            pair_counts,
+            pair_locations,
+            pair_heap,
+            new_token_id,
         )
         if config.debug_first_merges and merge_idx < 5:
             print("Top pairs after merge", merge_idx + 1)
@@ -54,8 +96,9 @@ def train(config: TokenizerConfig) -> tuple[Vocabulary, list[MergeRule]]:
                 print(pair, count)
         if (merge_idx + 1) % config.progress_every == 0:
             print(
-                f"[merge {merge_idx + 1}] best pair={best_pair} freq={best_count} "
-                f"vocab_size={len(vocab)}"
+                f"[merge {merge_idx + 1}] "
+                f"best pair=({left_symbol!r}, {right_symbol!r}) "
+                f"freq={best_count} vocab_size={len(vocab)}"
             )
     output_dir = config.output_dir.resolve()
     save_vocab(output_dir / "vocab.json", vocab)
@@ -119,7 +162,15 @@ def _evaluate_on_validation(config: TokenizerConfig, tokenizer: RuntimeTokenizer
                 skipped += 1
                 continue
             decoded = tokenizer.decode(ids)
-            if decoded != line:
+
+            if config.model_kind == "character_bpe":
+                reference = normalize_text(line, config)
+                if config.add_visible_space:
+                    reference = reference.replace(VISIBLE_SPACE, " ")
+            else:
+                reference = line
+
+            if decoded != reference:
                 mismatches += 1
 
     checked = total - skipped

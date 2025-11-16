@@ -81,23 +81,24 @@ def pretokenize_characters(text: str, config: TokenizerConfig) -> list[str]:
     """
     normalized = normalize_text(text, config)
     tokens: list[str] = []
+    first = True
     for chunk in normalized.split(VISIBLE_SPACE):
         if not chunk:
             continue
-        tokens.append(VISIBLE_SPACE)
+        if not first:
+            # Insert a visible-space marker between chunks, but not at the start.
+            tokens.append(VISIBLE_SPACE)
+        first = False
         tokens.extend(list(chunk))  # break words into chars
     return tokens
 
 
 def text_to_byte_symbols(text: str) -> list[str]:
     """
-    Convert UTF-8 text into printable byte symbols (byte-level BPE)
+    Convert UTF-8 text into byte symbols (byte-level BPE).
 
-    Args:
-        text: Text to convert.
-
-    Returns:
-        List of byte symbols.
+    Each byte is mapped to a single Unicode codepoint via BYTE_TO_CHAR so that
+    merged tokens can be flattened back to the underlying byte sequence.
     """
     byte_values = text.encode("utf-8")
     return [BYTE_TO_CHAR[b] for b in byte_values]
@@ -108,7 +109,7 @@ def byte_symbols_to_text(symbols: Iterable[str]) -> str:
     Inverse of text_to_byte_symbols.
 
     Args:
-        symbols: Iterable of byte symbols.
+        symbols: Iterable of single-character byte symbols.
 
     Returns:
         Text decoded from byte symbols.
@@ -118,7 +119,10 @@ def byte_symbols_to_text(symbols: Iterable[str]) -> str:
 
 
 def _build_byte_tables() -> tuple[list[str], dict[str, int]]:
-    byte_to_char = [chr(b) if 32 <= b <= 126 else f"<0x{b:02x}>" for b in range(256)]
+    # Map each byte value to a single-character symbol. For readability we
+    # simply reuse the same codepoint; this is reversible because we only ever
+    # feed these symbols into CHAR_TO_BYTE.
+    byte_to_char = [chr(b) for b in range(256)]
     char_to_byte = {char: byte for byte, char in enumerate(byte_to_char)}
     return byte_to_char, char_to_byte
 
