@@ -2,6 +2,8 @@
 
 A minimal, educational implementation of Byte Pair Encoding (BPE) tokenization from scratch. This project prioritizes learning and clarity over speed.
 
+DeepWiki available [here](https://deepwiki.com/edgardcham/bpetok/).
+
 ## Project Goals
 
 - Build a BPE tokenizer from raw text
